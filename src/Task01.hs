@@ -1,4 +1,4 @@
-module Task01 where
+module Main where
 
 import Data.Maybe (mapMaybe)
 import Distribution.Compat.Prelude (readMaybe)
@@ -29,13 +29,27 @@ rotationHistory _ [] = []
 solution1 :: Int -> String -> Int
 solution1 start = length . filter (0 ==) . rotationHistory start . parseInput
 
+rotateHell :: [Rotation] -> [Rotation]
+rotateHell = concatMap go
+  where
+    go :: Rotation -> [Rotation]
+    go (L n) = replicate n (L 1)
+    go (R n) = replicate n (R 1)
+
+solution2 :: Int -> String -> Int
+solution2 start = length . filter (0 ==) . rotationHistory start . rotateHell . parseInput
+
 main :: IO ()
 main = do
   putStrLn "Task 01"
-  
+
   example <- readFile "./inputs/01/example.txt"
   input <- readFile "./inputs/01/input.txt"
-  
+
   putStrLn "solution1:"
   putStrLn $ "example: " <> show (solution1 50 example)
   putStrLn $ "input: " <> show (solution1 50 input)
+
+  putStrLn "solution2:"
+  putStrLn $ "example: " <> show (solution2 50 example)
+  putStrLn $ "input: " <> show (solution2 50 input)
