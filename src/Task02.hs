@@ -1,6 +1,7 @@
 module Main where
 
 import Control.Monad (liftM2)
+import Data.List (inits)
 import Distribution.Compat.Prelude (mapMaybe, readMaybe)
 
 exampleFile = "./inputs/02/example.txt"
@@ -44,6 +45,18 @@ isInvalidId x = do
 solution1 :: String -> String
 solution1 = show . sum . concatMap (filter isInvalidId . expandRange) . parseInput
 
+isInvalidId' :: Z -> Bool
+isInvalidId' x = do
+  let digits = countDigits x
+      halfDigits = digits `div` 2
+      actual = show x
+      prefixes = take halfDigits . drop 1 $ inits actual
+      candidates = zipWith (\n p -> concat $ replicate (digits `div` n) p) [1 ..] prefixes
+  actual `elem` candidates
+
+solution2 :: String -> String
+solution2 = show . sum . concatMap (filter isInvalidId' . expandRange) . parseInput
+
 main :: IO ()
 main = do
   putStrLn "Task 02"
@@ -54,3 +67,7 @@ main = do
   putStrLn "solution1:"
   putStrLn $ "example: " <> solution1 example
   putStrLn $ "input: " <> solution1 input
+
+  putStrLn "solution2:"
+  putStrLn $ "example: " <> solution2 example
+  putStrLn $ "input: " <> solution2 input
