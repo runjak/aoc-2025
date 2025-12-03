@@ -42,7 +42,7 @@ isInvalidId x = do
   isEven ?: (actual == expected, False)
 
 solution1 :: String -> String
-solution1 input = show . sum . concatMap (filter isInvalidId . expandRange) $ parseInput input
+solution1 = show . sum . concatMap (filter isInvalidId . expandRange) . parseInput
 
 main :: IO ()
 main = do
