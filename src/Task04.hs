@@ -31,15 +31,7 @@ parseInput = Map.fromList . concat . zipWith go [0 ..] . lines
 
 adjacent :: Position -> [Position]
 adjacent (x, y) =
-  [ (x - 1, y - 1),
-    (x, y - 1),
-    (x + 1, y - 1),
-    (x - 1, y),
-    (x + 1, y),
-    (x - 1, y + 1),
-    (x, y + 1),
-    (x + 1, y + 1)
-  ]
+  [(x', y') | x' <- [x - 1, x, x + 1], y' <- [y - 1, y, y + 1], (x', y') /= (x, y)]
 
 hasPaper :: Department -> Position -> Bool
 hasPaper department = (== Paper) . fromMaybe Empty . flip Map.lookup department
