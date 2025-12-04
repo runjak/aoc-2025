@@ -2,6 +2,7 @@ module Main where
 
 import Data.Map (Map)
 import Data.Map qualified as Map
+import Data.Set qualified as Set
 import Distribution.Compat.Prelude (fromMaybe, mapMaybe, readMaybe)
 
 exampleFile = "./inputs/04/example.txt"
@@ -52,7 +53,23 @@ accessiblePaper department = do
   filter ((< 4) . length . adjacentPaper department) paperPositions
 
 solution1 :: String -> String
-solution1 = show . length . accessiblePaper . parseInput
+solution1 = show . length . accessiblePaper . dropEmpty . parseInput
+
+dropEmpty :: Department -> Department
+dropEmpty = Map.filter (/= Empty)
+
+dropPositions :: Department -> [Position] -> Department
+dropPositions department = Map.withoutKeys department . Set.fromList
+
+transitiveAccessiblePaper :: Department -> [Position]
+transitiveAccessiblePaper department = do
+  let paperPositions = accessiblePaper department
+      pCount = length paperPositions
+      next = (if null paperPositions then [] else transitiveAccessiblePaper $ dropPositions department paperPositions)
+  paperPositions <> next
+
+solution2 :: String -> String
+solution2 = show . length . transitiveAccessiblePaper . dropEmpty . parseInput
 
 main :: IO ()
 main = do
@@ -65,6 +82,6 @@ main = do
   putStrLn $ "example: " <> solution1 example
   putStrLn $ "input: " <> solution1 input
 
--- putStrLn "solution2:"
--- putStrLn $ "example: " <> solution2 example
--- putStrLn $ "input: " <> solution2 input
+  putStrLn "solution2:"
+  putStrLn $ "example: " <> solution2 example
+  putStrLn $ "input: " <> solution2 input
