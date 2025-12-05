@@ -1,3 +1,4 @@
+{- HLINT ignore "Use tuple-section" -}
 module Main where
 
 import Data.Set (Set)
@@ -37,6 +38,26 @@ solution1 = show . length . uncurry λ . parseInput
     λ :: Set Range -> [Z] -> [Z]
     λ ranges = filter (isFresh ranges)
 
+rangeLength :: Range -> Z
+rangeLength (a, b) = b - a + 1
+
+sanitizeRanges :: Set Range -> Set Range
+sanitizeRanges ranges = undefined
+
+nonOverlapping :: Set Range -> [Range]
+nonOverlapping = go . Set.elems
+  where
+    go :: [Range] -> [Range]
+    go [] = []
+    go (r : rs) = do
+      let rEnd = snd r
+          (overlapping, others) = span ((<= rEnd) . fst) rs
+          fixed = filter (uncurry (<)) $ map ((\e -> (rEnd + 1, e)) . snd) overlapping
+      r : go (fixed <> others)
+
+solution2 :: String -> String
+solution2 = show . sum . map rangeLength . nonOverlapping . fst . parseInput
+
 main :: IO ()
 main = do
   putStrLn "Task 05"
@@ -49,6 +70,5 @@ main = do
   putStrLn $ "input: " <> solution1 input
 
   putStrLn "solution2:"
-
--- putStrLn $ "example: " <> solution2 example
--- putStrLn $ "input: " <> solution2 input
+  putStrLn $ "example: " <> solution2 example
+  putStrLn $ "input: " <> solution2 input
