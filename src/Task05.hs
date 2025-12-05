@@ -1,4 +1,3 @@
-{- HLINT ignore "Use tuple-section" -}
 module Main where
 
 import Data.Set (Set)
@@ -52,7 +51,7 @@ nonOverlapping = go . Set.elems
     go (r : rs) = do
       let rEnd = snd r
           (overlapping, others) = span ((<= rEnd) . fst) rs
-          fixed = filter (uncurry (<)) $ map ((\e -> (rEnd + 1, e)) . snd) overlapping
+          fixed = filter (uncurry (<)) $ map ((,) (rEnd + 1) . snd) overlapping
       r : go (fixed <> others)
 
 solution2 :: String -> String
