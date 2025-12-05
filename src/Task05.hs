@@ -40,9 +40,6 @@ solution1 = show . length . uncurry λ . parseInput
 rangeLength :: Range -> Z
 rangeLength (a, b) = b - a + 1
 
-sanitizeRanges :: Set Range -> Set Range
-sanitizeRanges ranges = undefined
-
 nonOverlapping :: Set Range -> [Range]
 nonOverlapping = go . Set.elems
   where
