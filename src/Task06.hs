@@ -36,6 +36,7 @@ parseHomework1 input = do
 solution1 :: String -> String
 solution1 = show . sum . map solveColumn . parseHomework1
 
+-- TODO write with tranpose?
 separateColumns :: String -> [[String]]
 separateColumns input = do
   let ls = lines input

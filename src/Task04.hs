@@ -53,6 +53,7 @@ dropEmpty = Map.filter (/= Empty)
 dropPositions :: Department -> [Position] -> Department
 dropPositions department = Map.withoutKeys department . Set.fromList
 
+-- TODO use iterate?
 transitiveAccessiblePaper :: Department -> [Position]
 transitiveAccessiblePaper department = do
   let paperPositions = accessiblePaper department
