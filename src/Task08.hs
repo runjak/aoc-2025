@@ -47,7 +47,7 @@ solution2 = const "Not implemented"
 
 main :: IO ()
 main = do
-  putStrLn "Task 07"
+  putStrLn "Task 08"
 
   example <- readFile exampleFile
   input <- readFile inputFile
