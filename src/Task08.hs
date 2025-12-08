@@ -1,11 +1,12 @@
 module Main where
 
-import Data.List ( partition, sortOn, sort )
+import Data.List ( partition, sortOn, sort, sortBy )
 import Data.Maybe (mapMaybe)
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.String (fromString)
 import Distribution.Compat.Prelude (readMaybe)
+import qualified Data.Ord
 
 exampleFile = "./inputs/08/example.txt"
 
@@ -39,7 +40,7 @@ connect circuits (v1, v2) =
    in Set.unions (Set.fromList [v1, v2] : affected) : rest
 
 solve1 :: Int -> [Vec] -> Int
-solve1 n = product . take 3 . reverse . sort . map Set.size . foldl connect [] . take n . sortedPairs
+solve1 n = product . take 3 . sortBy (Data.Ord.comparing Data.Ord.Down) . map Set.size . foldl connect [] . take n . sortedPairs
 
 test = solve1 10 . readInput <$> readFile exampleFile
 
