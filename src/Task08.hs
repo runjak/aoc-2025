@@ -2,7 +2,6 @@ module Main where
 
 import Data.List (partition, sort, sortBy, sortOn)
 import Data.Maybe (mapMaybe)
-import Data.Ord qualified
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.String (fromString)
@@ -38,7 +37,7 @@ connect circuits (v1, v2) =
    in Set.unions (Set.fromList [v1, v2] : affected) : rest
 
 solve1 :: Int -> [Vec] -> Int
-solve1 n = product . take 3 . sortBy (Data.Ord.comparing Data.Ord.Down) . map Set.size . foldl connect [] . take n . sortedPairs
+solve1 n = product . take 3 . sortOn negate . map Set.size . foldl connect [] . take n . sortedPairs
 
 solution1 :: Int -> String -> String
 solution1 n = show . solve1 n . readInput
