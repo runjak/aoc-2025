@@ -40,8 +40,6 @@ connect circuits (v1, v2) =
 solve1 :: Int -> [Vec] -> Int
 solve1 n = product . take 3 . sortBy (Data.Ord.comparing Data.Ord.Down) . map Set.size . foldl connect [] . take n . sortedPairs
 
-test = solve1 10 . readInput <$> readFile exampleFile
-
 solution1 :: Int -> String -> String
 solution1 n = show . solve1 n . readInput
 
