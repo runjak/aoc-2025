@@ -1,20 +1,18 @@
 module Main where
 
-import Data.List ( partition, sortOn, sort, sortBy )
+import Data.List (partition, sort, sortBy, sortOn)
 import Data.Maybe (mapMaybe)
+import Data.Ord qualified
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.String (fromString)
 import Distribution.Compat.Prelude (readMaybe)
-import qualified Data.Ord
 
 exampleFile = "./inputs/08/example.txt"
 
 inputFile = "./inputs/08/input.txt"
 
-type Z = Int
-
-type Vec = [Z]
+type Vec = [Int]
 
 replace :: Char -> Char -> String -> String
 replace x y = map (\c -> if c == x then y else c)
@@ -26,7 +24,7 @@ pairs :: [a] -> [(a, a)]
 pairs [] = []
 pairs (x : xs) = map (x,) xs <> pairs xs
 
-squareDistance :: Vec -> Vec -> Z
+squareDistance :: Vec -> Vec -> Int
 squareDistance a b = sum $ zipWith (\x y -> (^ 2) $ x - y) a b
 
 sortedPairs :: [Vec] -> [(Vec, Vec)]
