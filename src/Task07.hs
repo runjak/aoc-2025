@@ -39,32 +39,6 @@ startCounts = map (\c -> if c == 'S' then 1 else 0)
 picks :: [Int] -> String -> Int
 picks counts = sum . zipWith (\c s -> if s == '|' then c else 0) counts
 
-pickChoices :: Int -> [String]
-pickChoices = drop 1 . λ
-  where
-    λ 0 = [""]
-    λ n = do
-      c <- ".|"
-      cs <- λ (n - 1)
-      return $ c : cs
-
-type PickRule = [Int] -> String -> String -> Maybe (Int, [Int], String, String)
-
-mkPickRule :: String -> String -> Int -> PickRule
-mkPickRule pickPattern match discard counts line1 line2
-  | null line1 || null line2 = Just (0, [], [], [])
-  | isPrefixOf pickPattern line1 && isPrefixOf match line2 =
-      Just
-        ( picks counts pickPattern,
-          drop discard counts,
-          drop discard line1,
-          drop discard line2
-        )
-  | otherwise = Nothing
-
-mkPickRules :: Int -> String -> Int -> [PickRule]
-mkPickRules choices match discard = map (\pickPattern -> mkPickRule pickPattern match discard) $ pickChoices choices
-
 countfront :: [Int] -> String -> String -> [Int]
 countfront [] _ _ = []
 countfront _ [] _ = []
