@@ -1,10 +1,9 @@
 module Main where
 
-import Data.List (partition, sort, sortBy, sortOn)
+import Data.List (partition, sortOn)
 import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 import Data.Set (Set)
 import Data.Set qualified as Set
-import Data.String (fromString)
 import Distribution.Compat.Prelude (readMaybe)
 
 exampleFile = "./inputs/08/example.txt"
