@@ -1,7 +1,7 @@
 module Main where
 
 import Data.List (partition, sort, sortBy, sortOn)
-import Data.Maybe (mapMaybe, fromMaybe, listToMaybe)
+import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.String (fromString)
@@ -43,17 +43,17 @@ solution1 :: Int -> String -> String
 solution1 n = show . solve1 n . readInput
 
 -- connect, but keeping the last connected pair
-connectLast :: ((Vec, Vec), [Circuit])-> (Vec, Vec) -> ((Vec, Vec), [Circuit])
+connectLast :: ((Vec, Vec), [Circuit]) -> (Vec, Vec) -> ((Vec, Vec), [Circuit])
 connectLast last@(_, circuits) (v1, v2) = do
   let (affected, rest) = partition (\s -> Set.member v1 s || Set.member v2 s) circuits
-      unchanged = (not $ null affected) && all (\s -> Set.member v1 s && Set.member v2 s) affected
+      unchanged = not (null affected) && all (\s -> Set.member v1 s && Set.member v2 s) affected
       next = ((v1, v2), Set.unions (Set.fromList [v1, v2] : affected) : rest)
   if unchanged then last else next
 
 solve2 :: [Vec] -> Int
 solve2 boxes =
   let (v1, v2) = fst . foldl connectLast (([], []), []) $ sortedPairs boxes
-  in fromMaybe 0 . listToMaybe $ zipWith (*) v1 v2
+   in fromMaybe 0 . listToMaybe $ zipWith (*) v1 v2
 
 solution2 :: String -> String
 solution2 = show . solve2 . readInput
