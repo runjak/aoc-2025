@@ -1,0 +1,5 @@
+# https://stackoverflow.com/a/64825087/448591
+# https://hackage.haskell.org/package/implicit-hie
+
+cradle:
+  stack:
