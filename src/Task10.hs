@@ -23,7 +23,7 @@ readInput = map readLine . lines
     readLine line = do
       let parts = words line
           lights = readLights $ head parts
-          buttons = map readButton . tail $ init parts
+          buttons = map readButton . drop 1 $ init parts
           joltages = readJoltages $ last parts
       (lights, buttons, joltages)
 
@@ -37,12 +37,12 @@ readInput = map readLine . lines
 
     readButton :: String -> Button
     readButton part' = do
-      let part = "[" <> init (tail part') <> "]"
+      let part = "[" <> init (drop 1 part') <> "]"
       fromMaybe [] $ readMaybe part
 
     readJoltages :: String -> [Int]
     readJoltages part' = do
-      let part = "[" <> init (tail part') <> "]"
+      let part = "[" <> init (drop 1 part') <> "]"
       fromMaybe [] $ readMaybe part
 
 buttonAsLights :: Button -> Lights
