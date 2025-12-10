@@ -1,6 +1,7 @@
 module Main where
 
-import Data.Maybe (mapMaybe, fromMaybe)
+import Data.List qualified as List
+import Data.Maybe (fromMaybe, mapMaybe)
 import Distribution.Compat.Prelude (readMaybe)
 
 exampleFile = "./inputs/10/example.txt"
@@ -40,10 +41,31 @@ readInput = map readLine . lines
     readJoltages :: String -> String
     readJoltages = id
 
-test = readInput <$> readFile exampleFile
+buttonAsLights :: Button -> Lights
+buttonAsLights [] = []
+buttonAsLights ns'@(n : ns)
+  | n > 0 = False : buttonAsLights (map (subtract 1) ns')
+  | otherwise = True : buttonAsLights (map (subtract 1) ns)
+
+type Toggle = Lights -> Lights
+
+toggle :: Button -> Toggle
+toggle button = zipWith (\b l -> if b then not l else l) (buttonAsLights button <> repeat False)
+
+toggles :: [Toggle] -> Lights -> [Lights]
+toggles toggles lights = map ($ lights) toggles
+
+toggleStream :: [Button] -> Lights -> [[Lights]]
+toggleStream buttons initialLights = do
+  let ts = map toggle buttons
+  iterate (concatMap (List.nub . toggles ts)) [initialLights]
+
+solveMachine :: Lights -> [Button] -> Int
+solveMachine lights buttons =
+  head . map fst . filter (any (all not) . snd) . zip [0 ..] $ toggleStream buttons lights
 
 solution1 :: String -> String
-solution1 = const "Not implemented"
+solution1 = show . sum . map (\(lights, buttons, _) -> solveMachine lights buttons) . readInput
 
 solution2 :: String -> String
 solution2 = const "Not implemented"
