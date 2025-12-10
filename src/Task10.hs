@@ -1,6 +1,8 @@
 module Main where
 
 import Data.List qualified as List
+import Data.Map (Map)
+import Data.Map qualified as Map
 import Data.Maybe (fromMaybe, mapMaybe)
 import Distribution.Compat.Prelude (readMaybe)
 
@@ -72,21 +74,38 @@ solution1 = show . sum . map (\(lights, buttons, _) -> solveMachine lights butto
 buttonAsJoltages :: Button -> Joltages
 buttonAsJoltages = map (\l -> if l then 1 else 0) . buttonAsLights
 
-type Jolt = Joltages -> Joltages
+buttonAsJoltages' :: Int -> Button -> Joltages
+buttonAsJoltages' length button = take length (buttonAsJoltages button <> repeat 0)
 
-applyJoltage :: Button -> Joltages -> Joltages
-applyJoltage button = zipWith (flip (-)) (buttonAsJoltages button <> repeat 0)
+type JoltageMap = Map Joltages Int
 
-applyJoltages :: [Button] -> Joltages -> [Joltages]
-applyJoltages buttons joltages = map (($ joltages) . applyJoltage) buttons
+initialMap :: [Button] -> Joltages -> JoltageMap
+initialMap buttons joltages = do
+  Map.fromList $ map ((,1) . buttonAsJoltages' (length joltages)) buttons
 
-joltageStream :: [Button] -> Joltages -> [[Joltages]]
-joltageStream buttons initialJoltages =
-  iterate (concatMap (List.nub . filter (all (>= 0)) . applyJoltages buttons)) [initialJoltages]
+mergeJoltages :: (Joltages, Int) -> (Joltages, Int) -> (Joltages, Int)
+mergeJoltages (j1, steps1) (j2, steps2) = (zipWith (+) j1 j2, steps1 + steps2)
+
+nextJoltages :: [(Joltages, Int)] -> [(Joltages, Int)]
+nextJoltages (j : js) = [mergeJoltages j j' | j' <- js] <> nextJoltages js
+nextJoltages [] = []
+
+restrict :: Joltages -> JoltageMap -> JoltageMap
+restrict joltages joltageMap = do
+  let (keep, found, _) = Map.splitLookup joltages joltageMap
+      foundMap = maybe Map.empty (Map.singleton joltages) found
+  Map.union keep foundMap
+
+joltageSteps :: Joltages -> JoltageMap -> JoltageMap
+joltageSteps joltages prevMap = do
+  let nextMap = restrict joltages $ Map.fromListWith min $ nextJoltages $ Map.toList prevMap
+  Map.unionWith min prevMap nextMap
+
+joltageStream :: [Button] -> Joltages -> [JoltageMap]
+joltageStream buttons joltages = iterate (joltageSteps joltages) $ initialMap buttons joltages
 
 solveJoltages :: Joltages -> [Button] -> Int
-solveJoltages joltages buttons =
-  head . map fst . filter (any (all (== 0)) . snd) . zip [0 ..] $ joltageStream buttons joltages
+solveJoltages joltages buttons = head . mapMaybe (Map.lookup joltages) $ joltageStream buttons joltages
 
 solution2 :: String -> String
 solution2 = show . sum . map (\(_, buttons, joltages) -> solveJoltages joltages buttons) . readInput
