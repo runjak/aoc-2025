@@ -5,7 +5,7 @@ import Data.Map (Map)
 import Data.Map qualified as Map
 import Data.Maybe (fromMaybe, mapMaybe)
 import Distribution.Compat.Prelude (readMaybe)
-import Numeric.LinearProgramming (Bound((:==:)))
+import Numeric.LinearProgramming (Bound ((:==:)))
 import Numeric.LinearProgramming qualified as LP
 
 exampleFile = "./inputs/10/example.txt"
@@ -83,21 +83,21 @@ lpProblem :: [Button] -> LP.Optimization
 lpProblem buttons = LP.Minimize $ replicate (length buttons) 1
 
 lpConstraints :: [Button] -> Joltages -> LP.Constraints
-lpConstraints buttons joltages = do
+lpConstraints buttons joltages =
   let bJoltages = map (buttonAsJoltages' (length joltages)) buttons
-      bounds = map (\bs -> zip (map fromIntegral bs) [1..]) $ List.transpose bJoltages
-  LP.General $ zipWith (\bs j -> bs :==: j) bounds $ map fromIntegral joltages
+      bounds = map (\bs -> zip (map fromIntegral bs) [1 ..]) $ List.transpose bJoltages
+  in LP.General $ zipWith (:==:) bounds $ map fromIntegral joltages
 
 test = do
   f <- readFile inputFile
   let inputs = readInput f
-  return $ map (\(_,buttons,joltages) ->solveJoltages joltages buttons) inputs
+  return $ map (\(_, buttons, joltages) -> solveJoltages joltages buttons) inputs
 
 solveJoltages :: Joltages -> [Button] -> Maybe Int
 solveJoltages joltages buttons = go $ LP.simplex (lpProblem buttons) (lpConstraints buttons joltages) []
   where
     go :: LP.Solution -> Maybe Int
-    go (LP.Optimal (n,_)) = Just $ round n
+    go (LP.Optimal (n, _)) = Just $ round n
     go _ = Nothing
 
 solution2 :: String -> String
