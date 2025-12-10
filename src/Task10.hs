@@ -5,6 +5,8 @@ import Data.Map (Map)
 import Data.Map qualified as Map
 import Data.Maybe (fromMaybe, mapMaybe)
 import Distribution.Compat.Prelude (readMaybe)
+import Numeric.LinearProgramming (Bound((:==:)))
+import Numeric.LinearProgramming qualified as LP
 
 exampleFile = "./inputs/10/example.txt"
 
@@ -77,38 +79,29 @@ buttonAsJoltages = map (\l -> if l then 1 else 0) . buttonAsLights
 buttonAsJoltages' :: Int -> Button -> Joltages
 buttonAsJoltages' length button = take length (buttonAsJoltages button <> repeat 0)
 
-type JoltageMap = Map Joltages Int
+lpProblem :: [Button] -> LP.Optimization
+lpProblem buttons = LP.Minimize $ replicate (length buttons) 1
 
-initialMap :: [Button] -> Joltages -> JoltageMap
-initialMap buttons joltages = do
-  Map.fromList $ map ((,1) . buttonAsJoltages' (length joltages)) buttons
+lpConstraints :: [Button] -> Joltages -> LP.Constraints
+lpConstraints buttons joltages = do
+  let bJoltages = map (buttonAsJoltages' (length joltages)) buttons
+      bounds = map (\bs -> zip (map fromIntegral bs) [1..]) $ List.transpose bJoltages
+  LP.General $ zipWith (\bs j -> bs :==: j) bounds $ map fromIntegral joltages
 
-mergeJoltages :: (Joltages, Int) -> (Joltages, Int) -> (Joltages, Int)
-mergeJoltages (j1, steps1) (j2, steps2) = (zipWith (+) j1 j2, steps1 + steps2)
+test = do
+  f <- readFile inputFile
+  let inputs = readInput f
+  return $ map (\(_,buttons,joltages) ->solveJoltages joltages buttons) inputs
 
-nextJoltages :: [(Joltages, Int)] -> [(Joltages, Int)]
-nextJoltages (j : js) = [mergeJoltages j j' | j' <- js] <> nextJoltages js
-nextJoltages [] = []
-
-restrict :: Joltages -> JoltageMap -> JoltageMap
-restrict joltages joltageMap = do
-  let (keep, found, _) = Map.splitLookup joltages joltageMap
-      foundMap = maybe Map.empty (Map.singleton joltages) found
-  Map.union keep foundMap
-
-joltageSteps :: Joltages -> JoltageMap -> JoltageMap
-joltageSteps joltages prevMap = do
-  let nextMap = restrict joltages $ Map.fromListWith min $ nextJoltages $ Map.toList prevMap
-  Map.unionWith min prevMap nextMap
-
-joltageStream :: [Button] -> Joltages -> [JoltageMap]
-joltageStream buttons joltages = iterate (joltageSteps joltages) $ initialMap buttons joltages
-
-solveJoltages :: Joltages -> [Button] -> Int
-solveJoltages joltages buttons = head . mapMaybe (Map.lookup joltages) $ joltageStream buttons joltages
+solveJoltages :: Joltages -> [Button] -> Maybe Int
+solveJoltages joltages buttons = go $ LP.simplex (lpProblem buttons) (lpConstraints buttons joltages) []
+  where
+    go :: LP.Solution -> Maybe Int
+    go (LP.Optimal (n,_)) = Just $ round n
+    go _ = Nothing
 
 solution2 :: String -> String
-solution2 = show . sum . map (\(_, buttons, joltages) -> solveJoltages joltages buttons) . readInput
+solution2 = show . sum . mapMaybe (\(_, buttons, joltages) -> solveJoltages joltages buttons) . readInput
 
 main :: IO ()
 main = do
