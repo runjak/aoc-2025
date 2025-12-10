@@ -12,7 +12,7 @@ type Lights = [Bool]
 
 type Button = [Int]
 
-type Joltages = String
+type Joltages = [Int]
 
 readInput :: String -> [(Lights, [Button], Joltages)]
 readInput = map readLine . lines
@@ -38,8 +38,10 @@ readInput = map readLine . lines
       let part = "[" <> init (tail part') <> "]"
       fromMaybe [] $ readMaybe part
 
-    readJoltages :: String -> String
-    readJoltages = id
+    readJoltages :: String -> [Int]
+    readJoltages part' = do
+      let part = "[" <> init (tail part') <> "]"
+      fromMaybe [] $ readMaybe part
 
 buttonAsLights :: Button -> Lights
 buttonAsLights [] = []
@@ -56,9 +58,9 @@ toggles :: [Toggle] -> Lights -> [Lights]
 toggles toggles lights = map ($ lights) toggles
 
 toggleStream :: [Button] -> Lights -> [[Lights]]
-toggleStream buttons initialLights = do
+toggleStream buttons initialLights =
   let ts = map toggle buttons
-  iterate (concatMap (List.nub . toggles ts)) [initialLights]
+   in iterate (concatMap (List.nub . toggles ts)) [initialLights]
 
 solveMachine :: Lights -> [Button] -> Int
 solveMachine lights buttons =
@@ -67,8 +69,27 @@ solveMachine lights buttons =
 solution1 :: String -> String
 solution1 = show . sum . map (\(lights, buttons, _) -> solveMachine lights buttons) . readInput
 
+buttonAsJoltages :: Button -> Joltages
+buttonAsJoltages = map (\l -> if l then 1 else 0) . buttonAsLights
+
+type Jolt = Joltages -> Joltages
+
+applyJoltage :: Button -> Joltages -> Joltages
+applyJoltage button = zipWith (flip (-)) (buttonAsJoltages button <> repeat 0)
+
+applyJoltages :: [Button] -> Joltages -> [Joltages]
+applyJoltages buttons joltages = map (($ joltages) . applyJoltage) buttons
+
+joltageStream :: [Button] -> Joltages -> [[Joltages]]
+joltageStream buttons initialJoltages =
+  iterate (concatMap (List.nub . filter (all (>= 0)) . applyJoltages buttons)) [initialJoltages]
+
+solveJoltages :: Joltages -> [Button] -> Int
+solveJoltages joltages buttons =
+  head . map fst . filter (any (all (== 0)) . snd) . zip [0 ..] $ joltageStream buttons joltages
+
 solution2 :: String -> String
-solution2 = const "Not implemented"
+solution2 = show . sum . map (\(_, buttons, joltages) -> solveJoltages joltages buttons) . readInput
 
 main :: IO ()
 main = do
