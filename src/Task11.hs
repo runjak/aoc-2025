@@ -17,16 +17,16 @@ readInput :: String -> ReactorGraph
 readInput = Map.fromList . mapMaybe (go . words) . lines
   where
     go :: [String] -> Maybe (String, [String])
-    go (label:rest) = Just (init label, rest)
+    go (label : rest) = Just (init label, rest)
     go [] = Nothing
 
 next :: String -> ReactorGraph -> [String]
 next from reactor = fromMaybe [] $ Map.lookup from reactor
 
 fromTo :: String -> String -> ReactorGraph -> Int
-fromTo from to reactor = do
-  let (arrived, rest) = partition (==to) $ next from reactor
-  length arrived + (sum $ map (\f -> fromTo f to reactor) rest)
+fromTo from to reactor =
+  let (arrived, rest) = partition (== to) $ next from reactor
+   in sum $ (length arrived :) $ map (\f -> fromTo f to reactor) rest
 
 test = readInput <$> readFile exampleFile
 
