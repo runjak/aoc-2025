@@ -3,9 +3,11 @@ module Main where
 import Data.List (partition)
 import Data.Map (Map)
 import Data.Map qualified as Map
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (fromMaybe, mapMaybe, fromJust)
 import Data.Set (Set)
 import Data.Set qualified as Set
+import Numeric.LinearAlgebra ((<#), (!))
+import qualified Numeric.LinearAlgebra as LA
 
 exampleFile1 = "./inputs/11/example1.txt"
 exampleFile2 = "./inputs/11/example2.txt"
@@ -32,24 +34,62 @@ fromTo from to reactor =
 solution1 :: String -> String
 solution1 = show . fromTo "you" "out" . readInput
 
-unreachable :: String -> ReactorGraph -> ReactorGraph
-unreachable node reactor = Map.map (filter (/=node)) reactor
+type Vector = LA.Vector LA.R
+
+type Labeling = Map String Int
+
+type Matrix = LA.Matrix LA.R
+
+indexToVector :: Int -> Int -> Vector
+indexToVector size i = LA.vector $ take size [if x == i then 1 else 0|x <- [0..]]
+
+reactorToMatrix :: ReactorGraph -> (Labeling, Matrix)
+reactorToMatrix reactor' =
+  let reactor = Map.union reactor' $ Map.singleton "out" []
+      labels = Map.fromList $ zip (Map.keys reactor) [0..]
+      size = Map.size labels
+      matrix = LA.fromRows . map (sum . map (indexToVector size . fromMaybe (-1) . (Map.lookup `flip` labels))) $ Map.elems reactor
+   in (labels, matrix)
+
+square :: Matrix -> Matrix
+square m = m <> m
+
+power :: Matrix -> Int -> Matrix
+power m 0 = LA.ident $ LA.rows m
+power m n = foldl (<>) m $ replicate (n-1) m
+
+powerBy :: (Int -> Matrix) -> Int -> Matrix -> Matrix
+powerBy lookup 0 m = LA.ident $ LA.rows m
+powerBy lookup 1 m = m
+powerBy lookup n m
+  | even n = let m' = lookup (n `div` 2) in m' <> m'
+  | otherwise = m <> lookup (n - 1)
+
+powerMemo :: (Int, Int) -> Matrix -> Int -> Matrix
+powerMemo (from, to) m i =
+  let memo = Map.fromList $ map (\k -> (k, powerBy (\k' -> fromJust $ Map.lookup k' memo) k m)) [from..to] 
+   in fromJust $ Map.lookup i memo
+
+mFromTo' :: Matrix -> Int -> Int -> Int
+mFromTo' matrix from to =
+  let fromVector = indexToVector (LA.rows matrix) from
+      toVector = fromVector <# matrix
+   in round $ toVector ! to
+
+mFromTo :: Matrix -> Labeling -> String -> String -> Maybe Int
+mFromTo matrix labeling from to = mFromTo' matrix <$> Map.lookup from labeling <*> Map.lookup to labeling
 
 solve2 :: ReactorGraph -> Int
 solve2 reactor = do
-  let noFft = unreachable "fft" reactor
-      noDac = unreachable "dac" reactor
-      noBoth = unreachable "fft" noDac
-  -- sum [
-  --   fromTo "svr" "dac" reactor * fromTo "dac" "fft" reactor * fromTo "fft" "out" reactor,
-  --   fromTo "svr" "fft" reactor * fromTo "fft" "dac" reactor * fromTo "dac" "out" reactor
-  --   ]
+  let size = Map.size reactor
+      (labeling, matrix) = reactorToMatrix reactor
+      pm = powerMemo (0, size) matrix
+      m = sum $ map pm [1..size]
+      aToB = \ a b -> fromJust $ mFromTo m labeling a b
   sum [
-    fromTo "svr" "dac" noFft * fromTo "dac" "fft" noDac * fromTo "fft" "out" noBoth,
-    fromTo "svr" "fft" noDac * fromTo "fft" "dac" noFft * fromTo "dac" "out" noBoth
+    aToB "svr" "dac" * aToB "dac" "fft" * aToB "fft" "out",
+    aToB "svr" "fft" * aToB "fft" "dac" * aToB "dac" "out"
     ]
-
-test = readInput <$> readFile inputFile
 
 solution2 :: String -> String
 solution2 = show . solve2 . readInput
