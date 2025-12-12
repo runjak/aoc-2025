@@ -1,14 +1,15 @@
 module Main where
 
-import Control.Monad (guard, forM_)
-import qualified Data.List as List
-import qualified Data.List.Split as Split
+import Control.Monad (forM_, guard)
+import Data.Bifunctor (first)
+import Data.List qualified as List
+import Data.List.Split qualified as Split
 import Data.Maybe (catMaybes, listToMaybe, mapMaybe)
 import Data.Set (Set)
-import qualified Data.Set as Set
+import Data.Set qualified as Set
 import Distribution.Compat.Prelude (readMaybe)
 import Numeric.LinearProgramming (Bound (..))
-import qualified  Numeric.LinearProgramming as LP
+import Numeric.LinearProgramming qualified as LP
 
 exampleFile = "./inputs/12/example.txt"
 
@@ -29,17 +30,18 @@ readShapeWithIndex input = do
   return $ readShape $ unlines $ drop 1 parts
 
 type Dimension = (Int, Int)
+
 type Region = (Dimension, [Int])
 
 readDimension :: String -> Maybe Dimension
 readDimension input = case Split.splitOn "x" input of
-  [a,b] -> (,) <$> readMaybe a <*> readMaybe b
+  [a, b] -> (,) <$> readMaybe a <*> readMaybe b
   _ -> Nothing
 
 readRegion :: String -> Maybe Region
 readRegion input =
   case Split.splitOn ": " input of
-    [a,b] -> (,) <$> readDimension a <*> (Just $ mapMaybe readMaybe $ words b)
+    [a, b] -> (,) <$> readDimension a <*> Just (mapMaybe readMaybe $ words b)
     _ -> Nothing
 
 type Input = ([Shape], [Region])
@@ -49,10 +51,10 @@ readInput input =
   let chunks = Split.splitOn "\n\n" input
       shapes = mapMaybe readShapeWithIndex $ init chunks
       regions = mapMaybe readRegion $ lines $ last chunks
-  in (shapes, regions)
+   in (shapes, regions)
 
 mirrorX :: Shape -> Shape
-mirrorX = Set.map (\(x, y) -> (2 - x, y))
+mirrorX = Set.map (first (2 -))
 
 rotate90 :: Shape -> Shape
 rotate90 = Set.map λ
@@ -73,19 +75,22 @@ rotate90 = Set.map λ
     λ (2, 2) = (2, 0)
 
 variants :: Shape -> Set Shape
-variants shape = Set.fromList $ map ($ shape) [
-    id
-  , rotate90
-  , rotate90 . rotate90
-  , rotate90 . rotate90 . rotate90
-  , mirrorX
-  , rotate90 .  mirrorX
-  , rotate90 . rotate90 . mirrorX
-  , rotate90 . rotate90 . rotate90 . mirrorX
-  ]
+variants shape =
+  Set.fromList $
+    map
+      ($ shape)
+      [ id,
+        rotate90,
+        rotate90 . rotate90,
+        rotate90 . rotate90 . rotate90,
+        mirrorX,
+        rotate90 . mirrorX,
+        rotate90 . rotate90 . mirrorX,
+        rotate90 . rotate90 . rotate90 . mirrorX
+      ]
 
 showShape :: Shape -> String
-showShape shape = unlines [[if Set.member (x,y) shape then '#' else '.'|x<-[0..2]]|y<-[0..2]]
+showShape shape = unlines [[if Set.member (x, y) shape then '#' else '.' | x <- [0 .. 2]] | y <- [0 .. 2]]
 
 testShapeVariants :: IO ()
 testShapeVariants = do
@@ -97,8 +102,8 @@ testShapeVariants = do
 shapePlacements :: Dimension -> Shape -> Set Shape
 shapePlacements (xMax, yMax) shape =
   let vs = variants shape
-      candidates = [Set.map (\(x, y) -> (x + deltaX, y + deltaY)) v|deltaX <- [0..xMax], deltaY <- [0..yMax], v <- Set.elems vs ]
-  in Set.fromList $ filter (all (\(x, y) -> x < xMax && y < yMax) . Set.elems) candidates
+      candidates = [Set.map (\(x, y) -> (x + deltaX, y + deltaY)) v | deltaX <- [0 .. xMax], deltaY <- [0 .. yMax], v <- Set.elems vs]
+   in Set.fromList $ filter (all (\(x, y) -> x < xMax && y < yMax) . Set.elems) candidates
 
 {-
 A problem is a list of sets of shapes.
@@ -130,11 +135,11 @@ and by adding constraints that ensure to not pick colliding variables for other 
 type EnumeratedProblem = [[(Int, Shape)]]
 
 enumerateProblem :: Problem -> EnumeratedProblem
-enumerateProblem = go [1..]
+enumerateProblem = go [1 ..]
   where
     go :: [Int] -> Problem -> EnumeratedProblem
     go _ [] = []
-    go ns (set:rest) =
+    go ns (set : rest) =
       let ns' = drop (Set.size set) ns
           es = zip ns $ Set.elems set
        in es : go ns' rest
@@ -165,7 +170,7 @@ simplex problem =
       constraints = LP.General $ onPerStack <> noCollisions
       variables = map fst $ concat problem
       optimization = LP.Maximize $ replicate (length variables) 1
-      bounds = [v :&: (0, 1)| v <- variables]
+      bounds = [v :&: (0, 1) | v <- variables]
    in LP.simplex optimization constraints bounds
 
 solved :: LP.Solution -> Bool
