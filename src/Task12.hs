@@ -163,9 +163,10 @@ simplex problem =
   let onPerStack = map (pickExactlyOne . map fst) problem
       noCollisions = map pickAtMostOne $ collisions problem
       constraints = LP.General $ onPerStack <> noCollisions
-      variableCount = length $ concat problem
-      optimization = LP.Maximize $ replicate variableCount 1
-   in LP.simplex optimization constraints []
+      variables = map fst $ concat problem
+      optimization = LP.Maximize $ replicate (length variables) 1
+      bounds = [v :&: (0, 1)| v <- variables]
+   in LP.simplex optimization constraints bounds
 
 solved :: LP.Solution -> Bool
 solved (LP.Feasible _) = True
@@ -174,6 +175,8 @@ solved _ = False
 
 solve1 :: Input -> Int
 solve1 (shapes, regions) = length . filter solved $ map (simplex . enumerateProblem . placementProblem shapes) regions
+
+test = solve1 . readInput <$> readFile exampleFile
 
 solution1 :: String -> String
 solution1 = show . solve1 . readInput
