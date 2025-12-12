@@ -1,6 +1,6 @@
 module Main where
 
-import Control.Monad (guard)
+import Control.Monad (guard, forM_)
 import qualified Data.List as List
 import qualified Data.List.Split as Split
 import Data.Maybe (catMaybes, listToMaybe, mapMaybe)
@@ -35,18 +35,67 @@ readDimension input = case Split.splitOn "x" input of
   _ -> Nothing
 
 readRegion :: String -> Maybe Region
-readRegion input = do
+readRegion input =
   case Split.splitOn ": " input of
     [a,b] -> (,) <$> readDimension a <*> (Just $ mapMaybe readMaybe $ words b)
     _ -> Nothing
 
+readInput :: String -> ([Shape], [Region])
+readInput input =
+  let chunks = Split.splitOn "\n\n" input
+      shapes = mapMaybe readShapeWithIndex $ init chunks
+      regions = mapMaybe readRegion $ lines $ last chunks
+  in (shapes, regions)
+
+test = readInput <$> readFile exampleFile
+
+mirrorX :: Shape -> Shape
+mirrorX = Set.map (\(x, y) -> (2 - x, y))
+
+rotate90 :: Shape -> Shape
+rotate90 = Set.map λ
+  where
+    {-
+    00 01 02    02 12 22
+    10 11 12 -> 01 11 21
+    20 21 22    00 10 20
+    -}
+    λ (0, 0) = (0, 2)
+    λ (0, 1) = (1, 2)
+    λ (0, 2) = (2, 2)
+    λ (1, 0) = (0, 1)
+    λ (1, 1) = (1, 1)
+    λ (1, 2) = (2, 1)
+    λ (2, 0) = (0, 0)
+    λ (2, 1) = (1, 0)
+    λ (2, 2) = (2, 0)
+
+variants :: Shape -> Set Shape
+variants shape = Set.fromList $ map ($ shape) [
+    id
+  , rotate90
+  , rotate90 . rotate90
+  , rotate90 . rotate90 . rotate90
+  , mirrorX
+  , rotate90 .  mirrorX
+  , rotate90 . rotate90 . mirrorX
+  , rotate90 . rotate90 . rotate90 . mirrorX
+  ]
+
+showShape :: Shape -> String
+showShape shape = unlines [[if Set.member (x,y) shape then '#' else '.'|x<-[0..2]]|y<-[0..2]]
+
+testShapeVariants :: IO ()
+testShapeVariants = do
+  let example = unlines ["###", "..#", "..."]
+  putStrLn $ "Variants of shape:\n" <> example <> "-----"
+  forM_ (Set.elems $ variants $ readShape example) $ \s -> putStrLn $ showShape s
+      
+
 {-
-Concept:
-Parse inputs
-Create classes of shapes
-Instance problems
-Solve problems
-Success
+  Instance problems
+  Solve problems
+  Success
 -}
 
 solution1 :: String -> String
