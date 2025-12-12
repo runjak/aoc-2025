@@ -3,9 +3,10 @@ module Main where
 import Control.Monad (guard)
 import qualified Data.List as List
 import qualified Data.List.Split as Split
-import Data.Maybe (catMaybes, listToMaybe)
+import Data.Maybe (catMaybes, listToMaybe, mapMaybe)
 import Data.Set (Set)
 import qualified Data.Set as Set
+import Distribution.Compat.Prelude (readMaybe)
 
 exampleFile = "./inputs/12/example.txt"
 
@@ -29,12 +30,15 @@ type Dimension = (Int, Int)
 type Region = (Dimension, [Int])
 
 readDimension :: String -> Maybe Dimension
-readDimension input = undefined
+readDimension input = case Split.splitOn "x" input of
+  [a,b] -> (,) <$> readMaybe a <*> readMaybe b
+  _ -> Nothing
 
 readRegion :: String -> Maybe Region
 readRegion input = do
-  let sadness = 23
-  undefined
+  case Split.splitOn ": " input of
+    [a,b] -> (,) <$> readDimension a <*> (Just $ mapMaybe readMaybe $ words b)
+    _ -> Nothing
 
 {-
 Concept:
