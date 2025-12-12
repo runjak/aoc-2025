@@ -90,7 +90,22 @@ testShapeVariants = do
   let example = unlines ["###", "..#", "..."]
   putStrLn $ "Variants of shape:\n" <> example <> "-----"
   forM_ (Set.elems $ variants $ readShape example) $ \s -> putStrLn $ showShape s
-      
+
+-- all variants and placements of a shape in an area of the given dimension
+shapePlacements :: Dimension -> Shape -> Set Shape
+shapePlacements (xMax, yMax) shape =
+  let vs = variants shape
+      candidates = [Set.map (\(x, y) -> (x + deltaX, y + deltaY)) v|deltaX <- [0..xMax], deltaY <- [0..yMax], v <- Set.elems vs ]
+  in Set.fromList $ filter (all (\(x, y) -> x < xMax && y < yMax) . Set.elems) candidates
+
+{-
+  Given a list of shapes and a region:
+  This function produces a list of sets of shapes.
+  One shape from each set MUST be picked without collisions in order for the shapes to be placeable without collisions.
+-}
+placementProblem :: [Shape] -> Region -> [Set Shape]
+placementProblem shapes (dimension, shapeCounts) =
+  concat $ zipWith (\shape count -> replicate count $ shapePlacements dimension shape) shapes shapeCounts
 
 {-
   Instance problems
