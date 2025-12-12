@@ -7,6 +7,8 @@ import Data.Maybe (catMaybes, listToMaybe, mapMaybe)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Distribution.Compat.Prelude (readMaybe)
+import Numeric.LinearProgramming (Bound (..))
+import qualified  Numeric.LinearProgramming as LP
 
 exampleFile = "./inputs/12/example.txt"
 
@@ -40,14 +42,14 @@ readRegion input =
     [a,b] -> (,) <$> readDimension a <*> (Just $ mapMaybe readMaybe $ words b)
     _ -> Nothing
 
-readInput :: String -> ([Shape], [Region])
+type Input = ([Shape], [Region])
+
+readInput :: String -> Input
 readInput input =
   let chunks = Split.splitOn "\n\n" input
       shapes = mapMaybe readShapeWithIndex $ init chunks
       regions = mapMaybe readRegion $ lines $ last chunks
   in (shapes, regions)
-
-test = readInput <$> readFile exampleFile
 
 mirrorX :: Shape -> Shape
 mirrorX = Set.map (\(x, y) -> (2 - x, y))
@@ -99,22 +101,82 @@ shapePlacements (xMax, yMax) shape =
   in Set.fromList $ filter (all (\(x, y) -> x < xMax && y < yMax) . Set.elems) candidates
 
 {-
+A problem is a list of sets of shapes.
+For every set we need to place exactly one set.
+If this works all gifts can be placed.
+-}
+type Problem = [Set Shape]
+
+{-
   Given a list of shapes and a region:
   This function produces a list of sets of shapes.
   One shape from each set MUST be picked without collisions in order for the shapes to be placeable without collisions.
 -}
-placementProblem :: [Shape] -> Region -> [Set Shape]
+placementProblem :: [Shape] -> Region -> Problem
 placementProblem shapes (dimension, shapeCounts) =
   concat $ zipWith (\shape count -> replicate count $ shapePlacements dimension shape) shapes shapeCounts
 
 {-
-  Instance problems
-  Solve problems
-  Success
+An enumerated problem is one
+where the alternative shapes of a Problem are no longer a set,
+but we've instead got a list of tuples of indices and shapes.
+
+The indices are to be used as variables indicating which shape was chosen.
+
+We can then reformulate our problem as linear equations
+by specifying that exactly one variable of the inner lists is 1,
+and by adding constraints that ensure to not pick colliding variables for other shapes.
 -}
+type EnumeratedProblem = [[(Int, Shape)]]
+
+enumerateProblem :: Problem -> EnumeratedProblem
+enumerateProblem = go [1..]
+  where
+    go :: [Int] -> Problem -> EnumeratedProblem
+    go _ [] = []
+    go ns (set:rest) =
+      let ns' = drop (Set.size set) ns
+          es = zip ns $ Set.elems set
+       in es : go ns' rest
+
+pickExactlyOne :: [Int] -> LP.Bound [(Double, Int)]
+pickExactlyOne variables = [(1, v) | v <- variables] :==: 1
+
+pickAtMostOne :: [Int] -> LP.Bound [(Double, Int)]
+pickAtMostOne variables = [(1, v) | v <- variables] :<=: 1
+
+choices :: [a] -> [(a, [a])]
+choices xs = catMaybes $ zipWith (\i t -> (,i <> drop 1 t) <$> listToMaybe t) (List.inits xs) (List.tails xs)
+
+collisions :: EnumeratedProblem -> [[Int]]
+collisions = concatMap (uncurry go) . choices
+  where
+    go :: [(Int, Shape)] -> EnumeratedProblem -> [[Int]]
+    go stack others' = do
+      let others = concat others'
+      (variable, shape) <- stack
+      let colliding = map fst $ filter (not . Set.null . Set.intersection shape . snd) others
+      return $ variable : colliding
+
+simplex :: EnumeratedProblem -> LP.Solution
+simplex problem =
+  let onPerStack = map (pickExactlyOne . map fst) problem
+      noCollisions = map pickAtMostOne $ collisions problem
+      constraints = LP.General $ onPerStack <> noCollisions
+      variableCount = length $ concat problem
+      optimization = LP.Maximize $ replicate variableCount 1
+   in LP.simplex optimization constraints []
+
+solved :: LP.Solution -> Bool
+solved (LP.Feasible _) = True
+solved (LP.Optimal _) = True
+solved _ = False
+
+solve1 :: Input -> Int
+solve1 (shapes, regions) = length . filter solved $ map (simplex . enumerateProblem . placementProblem shapes) regions
 
 solution1 :: String -> String
-solution1 = const "Not implemented"
+solution1 = show . solve1 . readInput
 
 solution2 :: String -> String
 solution2 = const "Not implemented"
