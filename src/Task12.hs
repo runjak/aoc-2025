@@ -12,6 +12,7 @@ import Data.Set qualified as Set
 import Distribution.Compat.Prelude (readMaybe)
 import Numeric.LinearProgramming (Bound (..))
 import Numeric.LinearProgramming qualified as LP
+import qualified MiniSat
 
 exampleFile = "./inputs/12/example.txt"
 
