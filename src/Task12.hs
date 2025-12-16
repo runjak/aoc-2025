@@ -4,6 +4,8 @@ import Control.Monad (forM_, guard)
 import Data.Bifunctor (first)
 import Data.List qualified as List
 import Data.List.Split qualified as Split
+import Data.Map (Map)
+import qualified Data.Map as Map
 import Data.Maybe (catMaybes, listToMaybe, mapMaybe)
 import Data.Set (Set)
 import Data.Set qualified as Set
@@ -163,11 +165,29 @@ collisions = concatMap (uncurry go) . choices
       let colliding = map fst $ filter (not . Set.null . Set.intersection shape . snd) others
       return $ variable : colliding
 
+foo :: (Int, Shape) -> Map Position (Set Int)
+foo (i, ps) = Map.fromList [(p, Set.singleton i)|p <- Set.elems ps]
+
+foo' :: [(Int, Shape)] -> Map Position (Set Int)
+foo' = Map.unionsWith Set.union . map foo
+
+foo'' :: EnumeratedProblem -> Map Position (Set Int)
+foo'' = Map.unionsWith Set.union . map foo'
+
+otherCollisions :: EnumeratedProblem -> [[Int]]
+otherCollisions eProblem = do
+  let maxUsedVar = maximum $ concatMap (map fst) eProblem
+      vars = [maxUsedVar..]
+  -- We need a map from positions to sets of involved vars
+  -- type WantedSet = Map Position (Set Int)
+  let wantedMap = foo'' eProblem
+  map Set.elems $ Map.elems wantedMap
+
 simplex :: EnumeratedProblem -> LP.Solution
 simplex problem =
-  let onPerStack = map (pickExactlyOne . map fst) problem
-      noCollisions = map pickAtMostOne $ collisions problem
-      constraints = LP.General $ onPerStack <> noCollisions
+  let onePerStack = map (pickExactlyOne . map fst) problem
+      noCollisions = map pickAtMostOne $ otherCollisions problem
+      constraints = LP.General $ onePerStack <> noCollisions
       variables = map fst $ concat problem
       optimization = LP.Maximize $ replicate (length variables) 1
       bounds = [v :&: (0, 1) | v <- variables]
@@ -182,6 +202,15 @@ solve1 :: Input -> Int
 solve1 (shapes, regions) = length . filter solved $ map (simplex . enumerateProblem . placementProblem shapes) regions
 
 test = solve1 . readInput <$> readFile exampleFile
+
+testSimplex :: IO ()
+testSimplex = do
+  (shapes, regions) <- readInput <$> readFile exampleFile
+  forM_ regions $ \region -> do
+    let problem = enumerateProblem $ placementProblem shapes region
+    print $ simplex problem
+    return ()
+  return ()
 
 solution1 :: String -> String
 solution1 = show . solve1 . readInput
