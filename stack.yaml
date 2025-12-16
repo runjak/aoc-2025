@@ -41,6 +41,7 @@ packages: []
 #
 extra-deps:
   - hmatrix-glpk-0.19.0.0
+  - minisat-0.1.4
 
 # Override default flag values for project packages and extra-deps
 # flags: {}

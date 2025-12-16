@@ -11,6 +11,13 @@ packages:
       size: 660
   original:
     hackage: hmatrix-glpk-0.19.0.0
+- completed:
+    hackage: minisat-0.1.4@sha256:c0aaecbec2383b3bfa836295dbd0e57e6d8cf405fb124ea594f71d303a97ba9e,1765
+    pantry-tree:
+      sha256: d483d97f3534aa4374fa62c734f0fe41019c1037c12866fa23f85500b8065243
+      size: 1948
+  original:
+    hackage: minisat-0.1.4
 snapshots:
 - completed:
     sha256: dc2c118f708ee595ccad08b5be08ed276659b0c22ba7c8ba1ef25a49af318c50
