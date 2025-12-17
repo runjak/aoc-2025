@@ -1,6 +1,6 @@
 module Main where
 
-import Control.Monad (forM_, guard)
+import Control.Monad (forM, forM_, guard, filterM, liftM)
 import Data.Bifunctor (first)
 import Data.List qualified as List
 import Data.List.Split qualified as Split
@@ -10,8 +10,7 @@ import Data.Maybe (catMaybes, listToMaybe, mapMaybe)
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Distribution.Compat.Prelude (readMaybe)
-import Numeric.LinearProgramming (Bound (..))
-import Numeric.LinearProgramming qualified as LP
+import MiniSat (Lit, Solver)
 import qualified MiniSat
 
 exampleFile = "./inputs/12/example.txt"
@@ -135,86 +134,73 @@ We can then reformulate our problem as linear equations
 by specifying that exactly one variable of the inner lists is 1,
 and by adding constraints that ensure to not pick colliding variables for other shapes.
 -}
-type EnumeratedProblem = [[(Int, Shape)]]
+type EnumeratedProblem = [[(Lit, Shape)]]
 
-enumerateProblem :: Problem -> EnumeratedProblem
-enumerateProblem = go [1 ..]
+enumerateProblem :: Solver -> Problem -> IO EnumeratedProblem
+enumerateProblem solver problem =
+  forM problem $ \stack ->
+    forM (Set.elems stack) $ \shape ->
+      (,shape) <$> MiniSat.newLit solver
+
+collisionsPerPosition :: EnumeratedProblem -> Map Position (Set Lit)
+collisionsPerPosition = Map.unionsWith Set.union . map perStack
   where
-    go :: [Int] -> Problem -> EnumeratedProblem
-    go _ [] = []
-    go ns (set : rest) =
-      let ns' = drop (Set.size set) ns
-          es = zip ns $ Set.elems set
-       in es : go ns' rest
+    perStack :: [(Lit, Shape)] -> Map Position (Set Lit)
+    perStack = Map.unionsWith Set.union . map perEntry
 
-pickExactlyOne :: [Int] -> LP.Bound [(Double, Int)]
-pickExactlyOne variables = [(1, v) | v <- variables] :==: 1
+    perEntry :: (Lit, Shape) -> Map Position (Set Lit)
+    perEntry (i, ps) = Map.fromListWith Set.union [(p, Set.singleton i)|p <- Set.elems ps]
 
-pickAtMostOne :: [Int] -> LP.Bound [(Double, Int)]
-pickAtMostOne variables = [(1, v) | v <- variables] :<=: 1
-
-choices :: [a] -> [(a, [a])]
-choices xs = catMaybes $ zipWith (\i t -> (,i <> drop 1 t) <$> listToMaybe t) (List.inits xs) (List.tails xs)
-
-collisions :: EnumeratedProblem -> [[Int]]
-collisions = concatMap (uncurry go) . choices
+atMostOne :: [Lit] -> [[Lit]]
+atMostOne = pairs . map MiniSat.neg
   where
-    go :: [(Int, Shape)] -> EnumeratedProblem -> [[Int]]
-    go stack others' = do
-      let others = concat others'
-      (variable, shape) <- stack
-      let colliding = map fst $ filter (not . Set.null . Set.intersection shape . snd) others
-      return $ variable : colliding
+    pairs :: [Lit] -> [[Lit]]
+    pairs [] = []
+    pairs (a:as) = [[a,b]|b <- as] <> pairs as
 
-foo :: (Int, Shape) -> Map Position (Set Int)
-foo (i, ps) = Map.fromList [(p, Set.singleton i)|p <- Set.elems ps]
+exactlyOne :: [Lit] -> [[Lit]]
+exactlyOne as = as : atMostOne as
 
-foo' :: [(Int, Shape)] -> Map Position (Set Int)
-foo' = Map.unionsWith Set.union . map foo
+encodeProblem :: Problem -> IO Solver
+encodeProblem problem = do
+  solver <- MiniSat.newSolver
+  eProblem <- enumerateProblem solver problem
 
-foo'' :: EnumeratedProblem -> Map Position (Set Int)
-foo'' = Map.unionsWith Set.union . map foo'
+  -- We choose exactly one position for each shape:
+  mapM_ (MiniSat.addClause solver) $ concatMap (exactlyOne . map fst) eProblem
 
-otherCollisions :: EnumeratedProblem -> [[Int]]
-otherCollisions eProblem = do
-  let maxUsedVar = maximum $ concatMap (map fst) eProblem
-      vars = [maxUsedVar..]
-  -- We need a map from positions to sets of involved vars
-  -- type WantedSet = Map Position (Set Int)
-  let wantedMap = foo'' eProblem
-  map Set.elems $ Map.elems wantedMap
+  -- Shapes must not collide:
+  let collisionGroups = map Set.elems . Map.elems $ collisionsPerPosition eProblem 
+  mapM_ (MiniSat.addClause solver) $ concatMap atMostOne collisionGroups
 
-simplex :: EnumeratedProblem -> LP.Solution
-simplex problem =
-  let onePerStack = map (pickExactlyOne . map fst) problem
-      noCollisions = map pickAtMostOne $ otherCollisions problem
-      constraints = LP.General $ onePerStack <> noCollisions
-      variables = map fst $ concat problem
-      optimization = LP.Maximize $ replicate (length variables) 1
-      bounds = [v :&: (0, 1) | v <- variables]
-   in LP.simplex optimization constraints bounds
+  return solver
 
-solved :: LP.Solution -> Bool
-solved (LP.Feasible _) = True
-solved (LP.Optimal _) = True
-solved _ = False
+test = readInput <$> readFile exampleFile
 
-solve1 :: Input -> Int
-solve1 (shapes, regions) = length . filter solved $ map (simplex . enumerateProblem . placementProblem shapes) regions
+inputToProblems :: Input -> [Problem]
+inputToProblems (shapes, regions) = map (placementProblem shapes) regions
 
-test = solve1 . readInput <$> readFile exampleFile
+countSatisfiable :: [Problem] -> IO Int
+countSatisfiable = liftM length . filterM λ . zip [1..]
+  where
+    λ :: (Int, Problem) -> IO Bool
+    λ (i, problem) = do
+      putStrLn $ "Problem " <> show i
+      s <- encodeProblem problem
+      MiniSat.simplify s
+      MiniSat.solve s []
 
-testSimplex :: IO ()
-testSimplex = do
-  (shapes, regions) <- readInput <$> readFile exampleFile
-  forM_ regions $ \region -> do
-    let problem = enumerateProblem $ placementProblem shapes region
-    print $ simplex problem
-    return ()
-  return ()
+test' = do
+  problems <- inputToProblems <$> test
+  forM_ (zip [1..] problems) $ \(i, problem) -> do
+    putStrLn $ "Handling problem: " <> show i
+    s <- encodeProblem problem
+    MiniSat.simplify s
+    solved <- MiniSat.solve s []
+    putStrLn $ "solved: " <> show solved
 
-solution1 :: String -> String
-solution1 = show . solve1 . readInput
+solution1 :: String -> IO String
+solution1 = liftM show . countSatisfiable . inputToProblems . readInput
 
 solution2 :: String -> String
 solution2 = const "Not implemented"
@@ -227,8 +213,10 @@ main = do
   input <- readFile inputFile
 
   putStrLn "solution1:"
-  putStrLn $ "example: " <> solution1 example
-  putStrLn $ "input: " <> solution1 input
+  s1e <- solution1 example
+  putStrLn $ "example: " <> s1e
+  s1i <- solution1 input
+  putStrLn $ "input: " <> s1i
 
   putStrLn "solution2:"
   putStrLn $ "example: " <> solution2 example
