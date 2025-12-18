@@ -6,7 +6,7 @@ import Data.List qualified as List
 import Data.List.Split qualified as Split
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Maybe (catMaybes, listToMaybe, mapMaybe)
+import Data.Maybe (listToMaybe, mapMaybe)
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Distribution.Compat.Prelude (readMaybe)
@@ -175,8 +175,6 @@ encodeProblem problem = do
 
   return solver
 
-test = readInput <$> readFile exampleFile
-
 inputToProblems :: Input -> [Problem]
 inputToProblems (shapes, regions) = map (placementProblem shapes) regions
 
@@ -190,17 +188,21 @@ countSatisfiable = liftM length . filterM λ . zip [1..]
       MiniSat.simplify s
       MiniSat.solve s []
 
-test' = do
-  problems <- inputToProblems <$> test
-  forM_ (zip [1..] problems) $ \(i, problem) -> do
-    putStrLn $ "Handling problem: " <> show i
-    s <- encodeProblem problem
-    MiniSat.simplify s
-    solved <- MiniSat.solve s []
-    putStrLn $ "solved: " <> show solved
+possibleRegions :: Input -> Input
+possibleRegions (shapes, regions) =
+  (shapes,) $ filter (\r -> regionSize r >= sizeRequirements shapes (snd r)) regions
+  where
+    regionSize :: Region -> Int
+    regionSize = uncurry (*) . fst
+
+    sizeRequirements :: [Shape] -> [Int] -> Int
+    sizeRequirements shapes counts = sum $ zipWith (\shape count -> Set.size shape * count) shapes counts
 
 solution1 :: String -> IO String
-solution1 = liftM show . countSatisfiable . inputToProblems . readInput
+solution1 = liftM show . countSatisfiable . inputToProblems . possibleRegions . readInput
+
+solution1' :: String -> IO String
+solution1' = return . show . length . snd . possibleRegions . readInput
 
 solution2 :: String -> String
 solution2 = const "Not implemented"
@@ -213,9 +215,9 @@ main = do
   input <- readFile inputFile
 
   putStrLn "solution1:"
-  s1e <- solution1 example
+  s1e <- solution1' example
   putStrLn $ "example: " <> s1e
-  s1i <- solution1 input
+  s1i <- solution1' input
   putStrLn $ "input: " <> s1i
 
   putStrLn "solution2:"
